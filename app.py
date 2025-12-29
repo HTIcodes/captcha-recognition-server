@@ -147,10 +147,23 @@ def segment_captcha_hybrid(img_array, mask, size=(28, 28)):
         new_boxes = []
         for b in boxes:
             if b[2] > 20:  # اگر عرض بیش از 20 پیکسل بود
-                new_boxes.extend(split_wide_box(processed, b))
+                new_boxes.extend(split_wide_box(processed, b, expected_splits=2))
             else:
                 new_boxes.append(b)
         boxes = sorted(new_boxes, key=lambda b: b[0])
+    
+    # اگر هنوز کمتر از 5 کاراکتر داریم، تقسیم بیشتر
+    if len(boxes) < 5:
+        new_boxes = []
+        for b in boxes:
+            if b[2] > 15:  # threshold کمتر
+                new_boxes.extend(split_wide_box(processed, b, expected_splits=2))
+            else:
+                new_boxes.append(b)
+        boxes = sorted(new_boxes, key=lambda b: b[0])
+    
+    # فقط 5 box اول رو بردار (چون CAPTCHA 5 کاراکتریه)
+    boxes = boxes[:5]
 
     # استخراج کاراکترها
     letters = []
@@ -191,6 +204,19 @@ async def predict_captcha(file: UploadFile = File(...)):
             }
 
         print(f"📥 Image received: {img.shape}")
+        print(f"📐 Expected mask shape: {mask.shape}")
+        
+        # اگر اندازه تصویر با mask یکسان نیست، resize کن
+        if img.shape[:2] != mask.shape:
+            print(f"⚠️ Resizing image from {img.shape[:2]} to {mask.shape}")
+            img = cv2.resize(img, (mask.shape[1], mask.shape[0]))
+        
+        # DEBUG: ذخیره تصویر اصلی
+        debug_dir = "debug_images"
+        os.makedirs(debug_dir, exist_ok=True)
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        cv2.imwrite(f"{debug_dir}/original_{timestamp}.png", img)
 
         # تقسیم‌بندی کاراکترها با استفاده از mask
         letters = segment_captcha_hybrid(img, mask)
