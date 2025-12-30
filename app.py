@@ -278,6 +278,12 @@ async def health_check():
     }
 
 
+@app.get("/ping")
+async def ping():
+    """Endpoint ساده برای keep-alive"""
+    return {"status": "alive", "timestamp": str(__import__('datetime').datetime.now())}
+
+
 if __name__ == "__main__":
     import uvicorn
     import os
